@@ -70,23 +70,6 @@ defmodule GenObject do
 
   @doc false
   defmacro __using__(fields) do
-    # {fields, children} =
-    #   Macro.expand(fields, __CALLER__)
-    #   |> Enum.split_with(fn
-    #   {_name, default} when is_atom(default) ->
-    #     case Atom.to_string(default) do
-    #       <<"Elixir.", _module::binary>> -> false
-    #       _other -> true
-    #     end
-    #   {_name, [default]} when is_atom(default) ->
-    #     case Atom.to_string(default) do
-    #       <<"Elixir.", _module::binary>> -> false
-    #       _other -> true
-    #     end
-    #
-    #   _other -> true
-    # end)
-
     quote do
       use GenServer
       use Inherit, Keyword.merge([
@@ -139,8 +122,6 @@ defmodule GenObject do
       @doc false
       def init(opts) do
         pid = self()
-        # :pg.start_link()
-        # :pg.monitor(pid)
 
         {:ok, struct(__MODULE__, Keyword.put(opts, :pid, pid))}
       end
@@ -468,12 +449,6 @@ defmodule GenObject do
 
   defp do_put(object, field, value) do
     struct(object, %{field => value})
-
-    # allowed_fields = apply(object.__struct__, :allowed_fields, [])
-
-    # if field in allowed_fields  && node.owner_document do
-    #   GenServer.cast(node.owner_document, {:send_to_receiver, {:put, self(), field, value}})
-    # end
   end
 
   @doc """
@@ -629,17 +604,6 @@ defmodule GenObject do
 
   defp do_merge(object, fields) do
     Map.merge(object, fields)
-
-    # if node.owner_document do
-    #   allowed_fields = apply(node.__struct__, :allowed_fields, [])
-    #   fields = Map.drop(fields, allowed_fields)
-    #
-    #   if !Enum.empty?(fields) do
-    #     GenServer.cast(node.owner_document, {:send_to_receiver, {:merge, self(), fields}})
-    #   end
-    # end
-    #
-    # node
   end
 
   @doc false
