@@ -109,6 +109,13 @@ defmodule GenObject do
       end
 
       @doc """
+      Delegates to `GenObject.get/1`
+      """
+      def get(pid_or_object, field) do
+        GenObject.get(pid_or_object, field)
+      end
+
+      @doc """
       Delegates to `GenObject.put/3`
       """
       def put(pid, field, value) do
@@ -232,6 +239,30 @@ defmodule GenObject do
 
   def get(pid) when is_pid(pid) do
     GenServer.call(pid, :get)
+  end
+
+  @doc """
+  Retrieves the current state of an object.
+
+  This function returns the current object struct for the given PID.
+
+  ## Parameters
+
+  - `pid` - The PID of the object or a struct containing a PID
+
+  ## Examples
+
+      iex> {:ok, obj} = MyObject.new([])
+      iex> current_state = GenObject.get(obj.pid)
+      iex> %MyObject{} = current_state
+
+  """
+  def get(%{pid: pid}, field) when is_pid(pid) and is_atom(field) do
+    get(pid, field)
+  end
+
+  def get(pid, field) when is_pid(pid) and is_atom(field) do
+    GenServer.call(pid, {:get, field})
   end
 
   @doc """
@@ -497,93 +528,14 @@ defmodule GenObject do
     # node
   end
 
-  # @doc false
-  # def monitor(pid, type, refs) do
-  #   ref = Process.monitor(pid)
-  #   # I put the name as a string because the atom
-  #   # value is only used once when tearing down the monitored
-  #   # prcess but the string match in other functions
-  #   # is used frequently
-  #   # If that balance ever changes this should change to
-  #   # an atom by default
-  #   type_refs =
-  #     Map.get(refs, type, %{})
-  #     |> Map.put(ref, pid)
-  #
-  #   Map.put(refs, type, type_refs)
-  # end
-  #
-  # @doc false
-  # def demonitor(ref, type, refs) do
-  #   Process.demonitor(ref)
-  #   type_refs =
-  #     Map.get(refs, type, %{})
-  #     |> Map.delete(ref)
-  #
-  #   Map.put(refs, type, type_refs)
-  # end
-  #
-  # @doc false
-  # defmacro __define_relationship__({name, module}) do
-  #   singular_name = Macro.expand(name, __CALLER__.module)
-  #   singular_name! = String.to_atom("#{singular_name}!")
-  #   plural_name = Inflex.pluralize(name) |> String.to_atom()
-  #   plural_name! = String.to_atom("#{plural_name}!")
-  #   singular_var = Macro.var(singular_name, __CALLER__.module)
-  #   plural_var = Macro.var(plural_name, __CALLER__.module)
-  #   new_name = String.to_atom("new_#{singular_name}")
-  #   new_name! = String.to_atom("#{new_name}!")
-  #
-  #   quote do
-  #     def handle_call({unquote(new_name), fields}, _from, %__MODULE__{refs: refs, pid: pid} = object) do
-  #       with {:ok, %{pid: child_pid}} <- apply(unquote(module), :new, fields),
-  #         refs <- GenObject.monitor(child_pid, unquote(plural_name), refs) do
-  #           object = %__MODULE__{object | refs: refs}
-  #
-  #           {:reply, {:ok, unquote(singular_var), object}, object, {:continue, {unquote(new_name), opts}}}
-  #       else
-  #         error -> {:reply, error, object, {:continue, {unquote(new_name), error}}}
-  #       end
-  #     end
-  #
-  #     @doc false
-  #     def unquote(new_name)(pid_or_object, fields \\ [])
-  #     def unquote(new_name)(%__MODULE__{pid: pid}, fields),
-  #       do: GenServer.call(pid, {unquote(new_name), fields})
-  #     def unquote(new_name)(pid, {unquote(new_name), fields}) when is_pid(pid),
-  #       do: GenServer.call(pid, {unquote(new_name), fields})
-  #
-  #     defwithhold [{unquote(new_name), 1}, {unquote(new_name), 2}]
-  #     defoverridable [{unquote(new_name), 1}, {unquote(new_name), 2}]
-  #
-  #     def unquote(new_name!)(pid_or_object, opts \\ [])
-  #     def unquote(new_name!)(%__MODULE__{pid: pid}, opts),
-  #       do: GenServer.cast(pid, {unquote(new_name), opts})
-  #     def unquote(new_name!)(pid) when is_pid(pid),
-  #       do: GenSErver.cast(pid, {unquote(new_name), opts})
-  #
-  #     defwithhold [{unquote(new_name!), 1}, {unquote(new_name!), 2}]
-  #     defoverridable [{unquote(new_name!), 1}, {unquote(new_name!), 2}]
-  #
-  #     def unquote(plural_name)(pid) when is_pid(pid) do
-  #       %{refs: refs} = GenServer.call(pid, :get)
-  #       Map.get(refs, unquote(plural_name))
-  #       |> Map.values()
-  #     end
-  #     def unquote(plural_name)(%__MODULE__{pid: pid}) do
-  #       %{refs: refs} = GenServer.call(pid, :get)
-  #       Map.get(refs, unquote(plural_name))
-  #       |> Map.values()
-  #     end
-  #
-  #     defwithhold [{unquote(plural_name), 1}]
-  #     defoverridable [{unquote(plural_name), 1}]
-  #   end
-  # end
-
   @doc false
-  def handle_call(:get, _from, object),
-    do: {:reply, object, object}
+  def handle_call(:get, _from, object) do
+    {:reply, object, object}
+  end
+
+  def handle_call({:get, field}, _from, object) do
+    {:reply, Map.get(object, field), object}
+  end
 
   def handle_call({:assign, assigns}, _from, object) when is_map(assigns) do
     object = struct(object, assigns: Map.merge(object.assigns, assigns))
@@ -643,12 +595,6 @@ defmodule GenObject do
   def handle_cast(msg, object) do
     Logger.warning("unhandled message #{msg}")
     {:noreply, object}
-  end
-
-  def handle_info({:DOWN, ref, :process, _pid, _reason}, %{refs: refs} = object) when is_map_key(refs, ref) do
-    {name, refs} = Map.pop(refs, ref)
-
-    {:noreply, Map.put(object, :refs, refs)}
   end
 
   def handle_info(msg, object) do

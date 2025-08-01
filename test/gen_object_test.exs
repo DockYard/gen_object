@@ -6,7 +6,7 @@ defmodule GenObjectTest do
     assert Process.alive?(pid)
   end
 
-  describe "get" do
+  describe "get/1" do
     test "with struct" do
       person = %Person{} = Person.new()
       assert Person.get(person) == person
@@ -15,6 +15,18 @@ defmodule GenObjectTest do
     test "with pid" do
       person = %Person{pid: pid} = Person.new()
       assert Person.get(pid) == person
+    end
+  end
+
+  describe "get/2" do
+    test "with struct" do
+      person = %Person{} = Person.new(name: "Brian")
+      assert Person.get(person, :name) == "Brian"
+    end
+
+    test "with pid" do
+      %Person{pid: pid} = Person.new(name: "Brian")
+      assert Person.get(pid, :name) == "Brian"
     end
   end
 
