@@ -2,14 +2,14 @@
 
 A library for creating stateful objects backed by GenServer processes with inheritance support.
 
-GenObject provides a macro-based DSL for defining object-like structures that maintain state in GenServer processes. Objects support field access, updates, lazy operations, and merging. The library integrates seamlessly with the [Inherit](https://github.com/DockYard/inherit) library to provide powerful inheritance modeling capabilities.
+GenObject provides a macro-based DSL for defining object-like structures that maintain state in GenServer processes. Objects support field access, updates, lazy operations, and merging. The library uses the [Inherit](https://github.com/DockYard/inherit) library to provide powerful inheritance modeling capabilities.
 
 ## Features
 
 - **Stateful Objects**: Objects backed by GenServer processes with automatic lifecycle management
 - **Field Operations**: Get, put, and merge operations with both synchronous and asynchronous variants
 - **Lazy Operations**: Functions that compute values based on current object state
-- **Inheritance Support**: Integration with the Inherit library for object inheritance patterns
+- **Inheritance Support**: Inherit library for object inheritance patterns
 - **Process Safety**: All operations are process-safe through GenServer messaging
 - **Performance**: Asynchronous variants for high-performance scenarios
 
@@ -20,8 +20,7 @@ Add `gen_object` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:gen_object, "~> 0.1.0"},
-    {:inherit, "~> 0.1.0"}  # For inheritance features
+    {:gen_object, "~> 0.1.0"}
   ]
 end
 ```
