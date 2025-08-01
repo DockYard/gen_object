@@ -61,8 +61,7 @@ defmodule GenObject.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      # {:inherit, "~> 0.2"},
-      {:inherit, path: "../inherit"},
+      {:inherit, "~> 0.2"},
       {:inflex, "~> 2.1"},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false}
     ]

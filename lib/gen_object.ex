@@ -260,7 +260,6 @@ defmodule GenObject do
       defwithhold handle_info: 2
       defoverridable handle_info: 2
     end
-    |> Inherit.debug(__CALLER__)
   end
 
   @doc """
