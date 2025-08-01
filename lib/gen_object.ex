@@ -1,22 +1,68 @@
 defmodule GenObject do
   @moduledoc """
-  A behaviour for creating stateful objects backed by GenServer processes.
+  A library for creating stateful objects backed by GenServer processes with inheritance support.
 
-  This module provides a macro `__using__/1` that generates functions for managing
-  object state through GenServer calls and casts. GenObjects created with this module
-  support field updates, lazy updates, and merging operations.
+  GenObject provides a macro-based DSL for defining object-like structures that maintain
+  state in GenServer processes. Objects support field access, updates, lazy operations,
+  and merging. The library integrates with the [Inherit](https://github.com/DockYard/inherit)
+  library to provide inheritance modeling capabilities.
 
-  ## Usage
+  ## Features
 
-      defmodule MyObject do
-        use GenObject, [:name, :value]
+  - **Stateful Objects**: Objects backed by GenServer processes with automatic lifecycle management
+  - **Field Operations**: Get, put, and merge operations with both synchronous and asynchronous variants
+  - **Lazy Operations**: Functions that compute values based on current object state
+  - **Inheritance Support**: Integration with the Inherit library for object inheritance patterns
+  - **Process Safety**: All operations are process-safe through GenServer messaging
+
+  ## Quick Start
+
+      defmodule Person do
+        use GenObject, [
+          name: "",
+          age: nil,
+          email: nil
+        ]
       end
 
-      # Create a new object
-      {:ok, obj} = MyObject.new(name: "test", value: 42)
+      # Create a new person object
+      person = Person.new(name: "Alice", age: 30)
+      
+      # Access fields
+      Person.get(person, :name)  # "Alice"
+      
+      # Update a single field
+      person = Person.put(person, :age, 31)
+      
+      # Update multiple fields
+      person = Person.merge(person, %{name: "Alice Smith", email: "alice@example.com"})
+      
+      # Lazy updates based on current state
+      person = Person.put_lazy(person, :age, fn p -> p.age + 1 end)
 
-      # Update fields
-      updated_obj = MyObject.put(obj.pid, :name, "updated")
+  ## Inheritance with the Inherit Library
+
+  GenObject integrates seamlessly with the [Inherit](https://github.com/DockYard/inherit) library
+  to provide object inheritance patterns. The Inherit library allows you to define parent-child
+  relationships between objects and inherit fields and behaviors.
+
+      defmodule Animal do
+        use GenObject, [
+          name: "",
+          species: ""
+        ]
+      end
+
+      defmodule Dog do
+        use GenObject
+        inherit Animal, [
+          breed: "",
+          trained: false
+        ]
+      end
+
+      # Dog inherits all fields from Animal plus its own
+      dog = Dog.new(name: "Rex", species: "Canis lupus", breed: "Labrador")
 
   """
 
@@ -218,19 +264,25 @@ defmodule GenObject do
   end
 
   @doc """
-  Retrieves the current state of an object.
+  Retrieves the complete current state of an object.
 
-  This function returns the current object struct for the given PID.
+  Returns the full object struct containing all fields and their current values.
+  Accepts either a PID directly or a struct containing a `:pid` field.
 
   ## Parameters
 
-  - `pid` - The PID of the object or a struct containing a PID
+  - `pid_or_object` - The PID of the GenObject process, or an object struct containing a `:pid` field
 
   ## Examples
 
-      iex> {:ok, obj} = MyObject.new([])
-      iex> current_state = GenObject.get(obj.pid)
-      iex> %MyObject{} = current_state
+      # Using the object struct
+      person = Person.new(name: "Alice", age: 30)
+      current_state = GenObject.get(person)
+      # Returns: %Person{name: "Alice", age: 30, pid: #PID<...>}
+
+      # Using the PID directly  
+      current_state = GenObject.get(person.pid)
+      # Returns: %Person{name: "Alice", age: 30, pid: #PID<...>}
 
   """
   def get(%{pid: pid}) when is_pid(pid) do
@@ -242,19 +294,27 @@ defmodule GenObject do
   end
 
   @doc """
-  Retrieves the current state of an object.
+  Retrieves the value of a specific field from an object.
 
-  This function returns the current object struct for the given PID.
+  Returns the current value of the specified field without retrieving the entire object struct.
+  This is more efficient when you only need a single field value.
 
   ## Parameters
 
-  - `pid` - The PID of the object or a struct containing a PID
+  - `pid_or_object` - The PID of the GenObject process, or an object struct containing a `:pid` field
+  - `field` - The atom representing the field name to retrieve
 
   ## Examples
 
-      iex> {:ok, obj} = MyObject.new([])
-      iex> current_state = GenObject.get(obj.pid)
-      iex> %MyObject{} = current_state
+      person = Person.new(name: "Alice", age: 30)
+      
+      # Get a specific field using the object struct
+      name = GenObject.get(person, :name)
+      # Returns: "Alice"
+      
+      # Get a specific field using the PID directly
+      age = GenObject.get(person.pid, :age)
+      # Returns: 30
 
   """
   def get(%{pid: pid}, field) when is_pid(pid) and is_atom(field) do
@@ -266,22 +326,28 @@ defmodule GenObject do
   end
 
   @doc """
-  Updates a specific field in the state struct and returns the updated struct.
+  Updates a specific field in an object and returns the updated object struct.
 
-  This function directly modifies a field in the struct stored in the process.
+  This is a synchronous operation that updates the field value and returns the complete
+  updated object struct. The operation is atomic and thread-safe.
 
   ## Parameters
 
-  - `pid` - The PID of the object
-  - `field` - The field name to update
-  - `value` - The new value for the field
+  - `pid_or_object` - The PID of the GenObject process, or an object struct containing a `:pid` field
+  - `field` - The atom representing the field name to update
+  - `value` - The new value to set for the field
 
   ## Examples
 
-      iex> {:ok, obj} = MyObject.new([])
-      iex> updated_obj = GenObject.put(obj.pid, :name, "Hello World")
-      iex> updated_obj.name
-      "Hello World"
+      person = Person.new(name: "Alice", age: 30)
+      
+      # Update using the object struct
+      updated_person = GenObject.put(person, :age, 31)
+      # Returns: %Person{name: "Alice", age: 31, pid: #PID<...>}
+      
+      # Update using the PID directly
+      updated_person = GenObject.put(person.pid, :name, "Alice Smith")
+      # Returns: %Person{name: "Alice Smith", age: 31, pid: #PID<...>}
 
   """
   def put(%{pid: pid}, field, value) when is_pid(pid) and is_atom(field) do
@@ -293,22 +359,31 @@ defmodule GenObject do
   end
 
   @doc """
-  Updates a specific field in the state struct asynchronously and immediately returns `:ok`.
+  Updates a specific field in an object asynchronously and returns `:ok` immediately.
 
-  This function directly modifies a field in the struct stored in the process
-  but does not return the updated struct.
+  This is an asynchronous operation that sends a cast message to update the field
+  and returns immediately without waiting for confirmation. Use this when you don't
+  need the updated object struct and want better performance.
 
   ## Parameters
 
-  - `pid` - The PID of the object
-  - `field` - The field name to update
-  - `value` - The new value for the field
+  - `pid_or_object` - The PID of the GenObject process, or an object struct containing a `:pid` field
+  - `field` - The atom representing the field name to update
+  - `value` - The new value to set for the field
 
   ## Examples
 
-      iex> {:ok, object} = MyObject.new([])
-      iex> :ok = GenObject.put!(object.pid, :name, "Hello World")
-      :ok
+      person = Person.new(name: "Alice", age: 30)
+      
+      # Async update using the object struct
+      :ok = GenObject.put!(person, :age, 31)
+      
+      # Async update using the PID directly
+      :ok = GenObject.put!(person.pid, :name, "Alice Smith")
+      
+      # Verify the update was applied
+      updated_person = GenObject.get(person)
+      # Returns: %Person{name: "Alice Smith", age: 31, pid: #PID<...>}
 
   """
   def put!(%{pid: pid}, field, value) when is_pid(pid) and is_atom(field) do
@@ -320,25 +395,31 @@ defmodule GenObject do
   end
 
   @doc """
-  Updates a specific field in the object struct using a function and returns the updated struct.
+  Updates a specific field using a function that computes the new value based on current object state.
 
-  This function allows you to update a field based on the current state of the object.
-  The function receives the current object as an argument and should return the new value for the field.
+  This synchronous operation allows you to update a field using a function that receives
+  the current object state and returns the new value for the field. Useful for updates
+  that depend on the current state of the object.
 
   ## Parameters
 
-  - `pid` - The PID of the object
-  - `field` - The field name to update
-  - `func` - A function that takes the current object and returns the new value for the field
+  - `pid_or_object` - The PID of the GenObject process, or an object struct containing a `:pid` field
+  - `field` - The atom representing the field name to update
+  - `func` - A function that takes the current object struct and returns the new value for the field
 
   ## Examples
 
-      iex> {:ok, obj} = MyObject.new([name: "Hello"])
-      iex> updated_obj = GenObject.put_lazy(obj.pid, :name, fn obj -> 
-      ...>   obj.name <> " World"
-      ...> end)
-      iex> updated_obj.name
-      "Hello World"
+      person = Person.new(name: "Alice", age: 30)
+      
+      # Increment age based on current value
+      updated_person = GenObject.put_lazy(person, :age, fn p -> p.age + 1 end)
+      # Returns: %Person{name: "Alice", age: 31, pid: #PID<...>}
+      
+      # Modify name based on current state
+      updated_person = GenObject.put_lazy(person.pid, :name, fn p -> 
+        p.name <> " (" <> Integer.to_string(p.age) <> ")"
+      end)
+      # Returns: %Person{name: "Alice (30)", age: 30, pid: #PID<...>}
 
   """
   def put_lazy(%{pid: pid}, field, func) when is_pid(pid) and is_atom(field) and is_function(func) do
@@ -350,24 +431,32 @@ defmodule GenObject do
   end
 
   @doc """
-  Updates a specific field in the object struct using a function asynchronously without returning a value.
+  Updates a specific field using a function asynchronously, returning `:ok` immediately.
 
-  This function is the asynchronous version of `put_lazy/3`. It allows you to update a field
-  based on the current state of the object but doesn't wait for a response.
+  This is the asynchronous version of `put_lazy/3`. It sends a cast message to update
+  the field using a function that computes the new value based on current object state,
+  but returns immediately without waiting for the operation to complete.
 
   ## Parameters
 
-  - `pid` - The PID of the object
-  - `field` - The field name to update
-  - `func` - A function that takes the current object and returns the new value for the field
+  - `pid_or_object` - The PID of the GenObject process, or an object struct containing a `:pid` field
+  - `field` - The atom representing the field name to update
+  - `func` - A function that takes the current object struct and returns the new value for the field
 
   ## Examples
 
-      iex> {:ok, obj} = MyObject.new([name: "Hello"])
-      iex> :ok = GenObject.put_lazy!(obj.pid, :name, fn obj -> 
-      ...>   obj.name <> " World"
-      ...> end)
-      :ok
+      person = Person.new(name: "Alice", age: 30)
+      
+      # Async increment age based on current value
+      :ok = GenObject.put_lazy!(person, :age, fn p -> p.age + 1 end)
+      
+      # Async modify name based on current state
+      :ok = GenObject.put_lazy!(person.pid, :name, fn p -> 
+        p.name <> " (" <> Integer.to_string(p.age) <> ")"
+      end)
+      
+      # Verify the updates were applied
+      updated_person = GenObject.get(person)
 
   """
   def put_lazy!(%{pid: pid}, field, func) when is_pid(pid) and is_atom(field) and is_function(func) do
@@ -389,27 +478,31 @@ defmodule GenObject do
   end
 
   @doc """
-  Merges multiple fields into the object struct and returns the updated object.
+  Merges multiple fields into an object and returns the updated object struct.
 
-  This function updates multiple fields in the object struct at once, similar to `struct/2`
-  but for live objects. Use this when you need to update several fields simultaneously.
+  This synchronous operation updates multiple fields simultaneously, similar to `struct/2`
+  but for live GenObject processes. More efficient than multiple individual `put/3` calls
+  when updating several fields at once.
 
   ## Parameters
 
-  - `pid` - The PID of the object
-  - `fields` - A map or keyword list of field-value pairs to merge
+  - `pid_or_object` - The PID of the GenObject process, or an object struct containing a `:pid` field
+  - `fields` - A map of field-value pairs to merge into the object
 
   ## Examples
 
-      iex> {:ok, obj} = MyObject.new([])
-      iex> updated_obj = GenObject.merge(obj.pid, %{
-      ...>   name: "Hello World",
-      ...>   value: 42
-      ...> })
-      iex> updated_obj.name
-      "Hello World"
-      iex> updated_obj.value
-      42
+      person = Person.new(name: "Alice", age: 30)
+      
+      # Merge multiple fields using the object struct
+      updated_person = GenObject.merge(person, %{
+        name: "Alice Smith",
+        age: 31,
+        email: "alice.smith@example.com"
+      })
+      # Returns: %Person{name: "Alice Smith", age: 31, email: "alice.smith@example.com", pid: #PID<...>}
+      
+      # Merge using the PID directly
+      updated_person = GenObject.merge(person.pid, %{age: 32, location: "New York"})
 
   """
   def merge(%{pid: pid}, fields) when is_pid(pid) and is_map(fields) do
@@ -421,24 +514,31 @@ defmodule GenObject do
   end
 
   @doc """
-  Merges multiple fields into the object struct asynchronously without returning a value.
+  Merges multiple fields into an object asynchronously, returning `:ok` immediately.
 
-  This function is the asynchronous version of `merge/2`. It updates multiple fields in the
-  object struct at once but doesn't wait for a response.
+  This is the asynchronous version of `merge/2`. It sends a cast message to update
+  multiple fields simultaneously but returns immediately without waiting for the
+  operation to complete. Use this for better performance when you don't need the updated struct.
 
   ## Parameters
 
-  - `pid` - The PID of the object
-  - `fields` - A map or keyword list of field-value pairs to merge
+  - `pid_or_object` - The PID of the GenObject process, or an object struct containing a `:pid` field
+  - `fields` - A map of field-value pairs to merge into the object
 
   ## Examples
 
-      iex> {:ok, obj} = MyObject.new([])
-      iex> :ok = GenObject.merge!(obj.pid, %{
-      ...>   name: "Hello World",
-      ...>   value: 42
-      ...> })
-      :ok
+      person = Person.new(name: "Alice", age: 30)
+      
+      # Async merge multiple fields
+      :ok = GenObject.merge!(person, %{
+        name: "Alice Smith",
+        age: 31,
+        email: "alice.smith@example.com"
+      })
+      
+      # Verify the updates were applied
+      updated_person = GenObject.get(person)
+      # Returns: %Person{name: "Alice Smith", age: 31, email: "alice.smith@example.com", pid: #PID<...>}
 
   """
   def merge!(%{pid: pid}, fields) when is_pid(pid) and is_map(fields) do
@@ -450,28 +550,36 @@ defmodule GenObject do
   end
 
   @doc """
-  Merges multiple fields into the object struct using a function and returns the updated object.
+  Merges multiple fields using a function that computes values based on current object state.
 
-  This function allows you to merge fields based on the current state of the object.
-  The function receives the current object as an argument and should return a map of
-  field-value pairs to merge.
+  This synchronous operation allows you to merge multiple fields using a function that
+  receives the current object state and returns a map of field-value pairs to merge.
+  Useful for complex updates that depend on multiple fields or computed values.
 
   ## Parameters
 
-  - `pid` - The PID of the object
-  - `func` - A function that takes the current object and returns a map of fields to merge
+  - `pid_or_object` - The PID of the GenObject process, or an object struct containing a `:pid` field
+  - `func` - A function that takes the current object struct and returns a map of field-value pairs to merge
 
   ## Examples
 
-      iex> {:ok, obj} = MyObject.new([name: "Hello"])
-      iex> updated_obj = GenObject.merge_lazy(obj.pid, fn obj -> 
-      ...>   %{
-      ...>     name: obj.name <> " World",
-      ...>     value: String.length(obj.name)
-      ...>   }
-      ...> end)
-      iex> updated_obj.name
-      "Hello World"
+      person = Person.new(name: "Alice", age: 30)
+      
+      # Merge fields based on current state
+      updated_person = GenObject.merge_lazy(person, fn p -> 
+        %{
+          name: p.name <> " Smith",
+          age: p.age + 1,
+          display_name: p.name <> " (" <> Integer.to_string(p.age + 1) <> ")"
+        }
+      end)
+      # Returns: %Person{name: "Alice Smith", age: 31, display_name: "Alice (31)", pid: #PID<...>}
+      
+      # Complex computation based on multiple fields
+      updated_person = GenObject.merge_lazy(person.pid, fn p ->
+        age_group = if p.age < 18, do: "minor", else: "adult"
+        %{age_group: age_group, can_vote: p.age >= 18}
+      end)
 
   """
   def merge_lazy(%{pid: pid}, func) when is_pid(pid) and is_function(func) do
@@ -483,26 +591,33 @@ defmodule GenObject do
   end
 
   @doc """
-  Merges multiple fields into the object struct using a function asynchronously without returning a value.
+  Merges multiple fields using a function asynchronously, returning `:ok` immediately.
 
-  This function is the asynchronous version of `merge_lazy/2`. It allows you to merge fields
-  based on the current state of the object but doesn't wait for a response.
+  This is the asynchronous version of `merge_lazy/2`. It sends a cast message to merge
+  multiple fields using a function that computes values based on current object state,
+  but returns immediately without waiting for the operation to complete.
 
   ## Parameters
 
-  - `pid` - The PID of the object
-  - `func` - A function that takes the current object and returns a map of fields to merge
+  - `pid_or_object` - The PID of the GenObject process, or an object struct containing a `:pid` field
+  - `func` - A function that takes the current object struct and returns a map of field-value pairs to merge
 
   ## Examples
 
-      iex> {:ok, obj} = MyObject.new([name: "Hello"])
-      iex> :ok = GenObject.merge_lazy!(obj.pid, fn obj -> 
-      ...>   %{
-      ...>     name: obj.name <> " World",
-      ...>     value: String.length(obj.name)
-      ...>   }
-      ...> end)
-      :ok
+      person = Person.new(name: "Alice", age: 30)
+      
+      # Async merge fields based on current state
+      :ok = GenObject.merge_lazy!(person, fn p -> 
+        %{
+          name: p.name <> " Smith",
+          age: p.age + 1,
+          display_name: p.name <> " (" <> Integer.to_string(p.age + 1) <> ")"
+        }
+      end)
+      
+      # Verify the updates were applied
+      updated_person = GenObject.get(person)
+      # Returns: %Person{name: "Alice Smith", age: 31, display_name: "Alice (31)", pid: #PID<...>}
 
   """
   def merge_lazy!(%{pid: pid}, func) when is_pid(pid) and is_function(func) do
