@@ -54,8 +54,7 @@ defmodule GenObject do
       end
 
       defmodule Dog do
-        use GenObject
-        inherit Animal, [
+        use Animal, [
           breed: "",
           trained: false
         ]
