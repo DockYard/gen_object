@@ -136,8 +136,7 @@ defmodule Animal do
 end
 
 defmodule Dog do
-  use GenObject
-  inherit Animal, [
+  use Animal, [
     breed: "",
     trained: false
   ]
@@ -181,24 +180,21 @@ defmodule LivingThing do
 end
 
 defmodule Animal do
-  use GenObject
-  inherit LivingThing, [
+  use LivingThing, [
     name: "",
     species: ""
   ]
 end
 
 defmodule Mammal do
-  use GenObject
-  inherit Animal, [
+  use Animal, [
     warm_blooded: true,
     fur_color: nil
   ]
 end
 
 defmodule Dog do
-  use GenObject
-  inherit Mammal, [
+  use Mammal, [
     breed: "",
     trained: false
   ]
@@ -232,8 +228,7 @@ defmodule Vehicle do
 end
 
 defmodule Car do
-  use GenObject
-  inherit Vehicle, [
+  use Vehicle, [
     doors: 4,
     fuel_type: :gasoline
   ]
@@ -244,8 +239,7 @@ defmodule Car do
 end
 
 defmodule ElectricCar do
-  use GenObject
-  inherit Car, [
+  use Car, [
     battery_capacity: 0,
     charge_level: 100,
     fuel_type: :electric  # Override parent default
