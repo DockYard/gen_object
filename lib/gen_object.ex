@@ -674,6 +674,7 @@ defmodule GenObject do
     {:noreply, object}
   end
 
+  @doc false
   def handle_info(msg, object) do
     Logger.warning("unhandled message #{msg}")
     {:noreply, object}
