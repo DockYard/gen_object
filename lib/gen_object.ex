@@ -72,7 +72,6 @@ defmodule GenObject do
     quote do
       use GenServer
       use Inherit, Keyword.merge([
-        refs: %{},
         pid: nil,
       ], unquote(fields))
 
