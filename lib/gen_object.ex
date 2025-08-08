@@ -546,7 +546,7 @@ defmodule GenObject do
   end
 
   def handle_call(msg, _from, object) do
-    Logger.warning("unhandled messge: #{msg}")
+    Logger.warning("#{inspect(self())} unhandled messge: #{inspect(msg)}")
     {:reply, :ok, object}
   end
 
@@ -576,7 +576,7 @@ defmodule GenObject do
   end
 
   def handle_cast(msg, object) do
-    Logger.warning("unhandled message #{msg}")
+    Logger.warning("#{inspect(self())} unhandled message #{inspect(msg)}")
     {:noreply, object}
   end
 
@@ -584,7 +584,7 @@ defmodule GenObject do
 
   @doc false
   def handle_info(msg, object) do
-    Logger.warning("unhandled message #{msg}")
+    Logger.warning("#{inspect(self())} unhandled message #{inspect(msg)}")
     {:noreply, object}
   end
 
