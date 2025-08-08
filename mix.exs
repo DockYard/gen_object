@@ -2,7 +2,7 @@ defmodule GenObject.MixProject do
   use Mix.Project
 
   @source_url "https://github.com/DockYard/gen_object"
-  @version "0.2.0"
+  @version "0.2.1"
 
   def project do
     [
@@ -61,7 +61,7 @@ defmodule GenObject.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:inherit, "~> 0.2"},
+      {:inherit, "~> 0.3"},
       {:inflex, "~> 2.1"},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false}
     ]

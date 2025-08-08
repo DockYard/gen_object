@@ -20,7 +20,7 @@ Add `gen_object` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:gen_object, "~> 0.2.0"}
+    {:gen_object, "~> 0.2.1"}
   ]
 end
 ```
