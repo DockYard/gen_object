@@ -83,18 +83,21 @@ defmodule GenObject do
         GenServer.start_link(__MODULE__, opts)
       end
       defwithhold start_link: 0, start_link: 1
+      defoverridable start_link: 0, start_link: 1
 
       @doc false
       def start(opts \\ []) do
         GenServer.start(__MODULE__, opts)
       end
       defwithhold start: 0, start: 1
+      defoverridable start: 0, start: 1
 
       @doc false
       def child_spec(arg) do
         super(arg)
       end
       defwithhold child_spec: 1
+      defoverridable child_spec: 1
 
       @doc """
       Create a new object with the specified fields
@@ -106,6 +109,7 @@ defmodule GenObject do
         end
       end
       defwithhold new: 0, new: 1
+      defoverridable new: 0, new: 1
 
       @doc """
       Gracefully stops the curent object's GenServer
@@ -117,14 +121,15 @@ defmodule GenObject do
         GenServer.stop(pid)
       end
       defwithhold stop: 1
+      defoverridable stop: 1
 
       @doc false
       def init(opts) do
         pid = self()
-
         {:ok, struct(__MODULE__, Keyword.put(opts, :pid, pid))}
       end
       defwithhold init: 1
+      defoverridable init: 1
     end
   end
 
