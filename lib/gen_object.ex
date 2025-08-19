@@ -75,63 +75,52 @@ defmodule GenObject do
   defmacro __using__(fields) do
     quote do
       use GenServer
+      require Logger
       require Inherit
-      Inherit.setup(unquote(__MODULE__), unquote(fields))
-
-      @doc false
-      def start_link(opts \\ []) do
-        GenServer.start_link(__MODULE__, opts)
-      end
-      defwithhold start_link: 0, start_link: 1
-      defoverridable start_link: 0, start_link: 1
-
-      @doc false
-      def start(opts \\ []) do
-        GenServer.start(__MODULE__, opts)
-      end
-      defwithhold start: 0, start: 1
-      defoverridable start: 0, start: 1
-
-      @doc false
-      def child_spec(arg) do
-        super(arg)
-      end
-      defwithhold child_spec: 1
-      defoverridable child_spec: 1
-
-      @doc """
-      Create a new object with the specified fields
-      """
-      def new(opts \\ []) when is_list(opts) do
-        case start(opts) do
-          {:ok, pid} -> GenServer.call(pid, :get)
-          _other -> {:error, "could not start"}
-        end
-      end
-      defwithhold new: 0, new: 1
-      defoverridable new: 0, new: 1
-
-      @doc """
-      Gracefully stops the curent object's GenServer
-      """
-      def stop(%{pid: pid}) do
-        stop(pid)
-      end
-      def stop(pid) when is_pid(pid) do
-        GenServer.stop(pid)
-      end
-      defwithhold stop: 1
-      defoverridable stop: 1
-
-      @doc false
-      def init(opts) do
-        pid = self()
-        {:ok, struct(__MODULE__, Keyword.put(opts, :pid, pid))}
-      end
-      defwithhold init: 1
-      defoverridable init: 1
+      Inherit.from(unquote(__MODULE__), unquote(fields))
     end
   end
+
+  @doc false
+  def start_link(opts \\ []) do
+    GenServer.start_link(__MODULE__, opts)
+  end
+  defoverridable start_link: 0, start_link: 1
+
+  @doc false
+  def start(opts \\ []) do
+    GenServer.start(__MODULE__, opts)
+  end
+  defoverridable start: 0, start: 1
+
+  @doc """
+  Create a new object with the specified fields
+  """
+  def new(opts \\ []) when is_list(opts) do
+    case start(opts) do
+      {:ok, pid} -> GenServer.call(pid, :get)
+      _other -> {:error, "could not start"}
+    end
+  end
+  defoverridable new: 0, new: 1
+
+  @doc """
+  Gracefully stops the curent object's GenServer
+  """
+  def stop(%{pid: pid}) do
+    stop(pid)
+  end
+  def stop(pid) when is_pid(pid) do
+    GenServer.stop(pid)
+  end
+  defoverridable stop: 1
+
+  @doc false
+  def init(opts) do
+    pid = self()
+    {:ok, struct(__MODULE__, Keyword.put(opts, :pid, pid))}
+  end
+  defoverridable init: 1
 
   @doc """
   Retrieves the complete current state of an object.
@@ -179,11 +168,11 @@ defmodule GenObject do
   ## Examples
 
       person = Person.new(name: "Alice", age: 30)
-      
+
       # Get a specific field using the object struct
       name = GenObject.get(person, :name)
       # Returns: "Alice"
-      
+
       # Get a specific field using the PID directly
       age = GenObject.get(person.pid, :age)
       # Returns: 30
@@ -213,11 +202,11 @@ defmodule GenObject do
   ## Examples
 
       person = Person.new(name: "Alice", age: 30)
-      
+
       # Update using the object struct
       updated_person = GenObject.put(person, :age, 31)
       # Returns: %Person{name: "Alice", age: 31, pid: #PID<...>}
-      
+
       # Update using the PID directly
       updated_person = GenObject.put(person.pid, :name, "Alice Smith")
       # Returns: %Person{name: "Alice Smith", age: 31, pid: #PID<...>}
@@ -248,13 +237,13 @@ defmodule GenObject do
   ## Examples
 
       person = Person.new(name: "Alice", age: 30)
-      
+
       # Async update using the object struct
       :ok = GenObject.put!(person, :age, 31)
-      
+
       # Async update using the PID directly
       :ok = GenObject.put!(person.pid, :name, "Alice Smith")
-      
+
       # Verify the update was applied
       updated_person = GenObject.get(person)
       # Returns: %Person{name: "Alice Smith", age: 31, pid: #PID<...>}
@@ -286,11 +275,11 @@ defmodule GenObject do
   ## Examples
 
       person = Person.new(name: "Alice", age: 30)
-      
+
       # Increment age based on current value
       updated_person = GenObject.put_lazy(person, :age, fn p -> p.age + 1 end)
       # Returns: %Person{name: "Alice", age: 31, pid: #PID<...>}
-      
+
       # Modify name based on current state
       updated_person = GenObject.put_lazy(person.pid, :name, fn p -> 
         p.name <> " (" <> Integer.to_string(p.age) <> ")"
@@ -324,15 +313,15 @@ defmodule GenObject do
   ## Examples
 
       person = Person.new(name: "Alice", age: 30)
-      
+
       # Async increment age based on current value
       :ok = GenObject.put_lazy!(person, :age, fn p -> p.age + 1 end)
-      
+
       # Async modify name based on current state
       :ok = GenObject.put_lazy!(person.pid, :name, fn p -> 
         p.name <> " (" <> Integer.to_string(p.age) <> ")"
       end)
-      
+
       # Verify the updates were applied
       updated_person = GenObject.get(person)
 
@@ -366,7 +355,7 @@ defmodule GenObject do
   ## Examples
 
       person = Person.new(name: "Alice", age: 30)
-      
+
       # Merge multiple fields using the object struct
       updated_person = GenObject.merge(person, %{
         name: "Alice Smith",
@@ -374,7 +363,7 @@ defmodule GenObject do
         email: "alice.smith@example.com"
       })
       # Returns: %Person{name: "Alice Smith", age: 31, email: "alice.smith@example.com", pid: #PID<...>}
-      
+
       # Merge using the PID directly
       updated_person = GenObject.merge(person.pid, %{age: 32, location: "New York"})
 
@@ -404,14 +393,14 @@ defmodule GenObject do
   ## Examples
 
       person = Person.new(name: "Alice", age: 30)
-      
+
       # Async merge multiple fields
       :ok = GenObject.merge!(person, %{
         name: "Alice Smith",
         age: 31,
         email: "alice.smith@example.com"
       })
-      
+
       # Verify the updates were applied
       updated_person = GenObject.get(person)
       # Returns: %Person{name: "Alice Smith", age: 31, email: "alice.smith@example.com", pid: #PID<...>}
@@ -442,7 +431,7 @@ defmodule GenObject do
   ## Examples
 
       person = Person.new(name: "Alice", age: 30)
-      
+
       # Merge fields based on current state
       updated_person = GenObject.merge_lazy(person, fn p -> 
         %{
@@ -452,7 +441,7 @@ defmodule GenObject do
         }
       end)
       # Returns: %Person{name: "Alice Smith", age: 31, display_name: "Alice (31)", pid: #PID<...>}
-      
+
       # Complex computation based on multiple fields
       updated_person = GenObject.merge_lazy(person.pid, fn p ->
         age_group = if p.age < 18, do: "minor", else: "adult"
@@ -463,7 +452,7 @@ defmodule GenObject do
   def merge_lazy(%{pid: pid}, func) when is_pid(pid) and is_function(func) do
     merge_lazy(pid, func)
   end
-  
+
   def merge_lazy(pid, func) when is_pid(pid) and is_function(func) do
     GenServer.call(pid, {:merge_lazy, func})
   end
@@ -485,7 +474,7 @@ defmodule GenObject do
   ## Examples
 
       person = Person.new(name: "Alice", age: 30)
-      
+
       # Async merge fields based on current state
       :ok = GenObject.merge_lazy!(person, fn p -> 
         %{
@@ -494,7 +483,7 @@ defmodule GenObject do
           display_name: p.name <> " (" <> Integer.to_string(p.age + 1) <> ")"
         }
       end)
-      
+
       # Verify the updates were applied
       updated_person = GenObject.get(person)
       # Returns: %Person{name: "Alice Smith", age: 31, display_name: "Alice (31)", pid: #PID<...>}
