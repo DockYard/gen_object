@@ -2,7 +2,7 @@ defmodule GenObject.MixProject do
   use Mix.Project
 
   @source_url "https://github.com/DockYard/gen_object"
-  @version "0.2.1"
+  @version "0.3.0"
 
   def project do
     [
