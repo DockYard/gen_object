@@ -73,11 +73,14 @@ defmodule GenObject do
 
   @doc false
   defmacro __using__(fields) do
-    quote do
-      use GenServer
+    before_callback = quote do
       require Logger
+      use GenServer
+    end
+
+    quote do
       require Inherit
-      Inherit.from(unquote(__MODULE__), unquote(fields))
+      Inherit.from(unquote(__MODULE__), unquote(fields), before: unquote(before_callback))
     end
   end
 

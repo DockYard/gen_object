@@ -139,4 +139,9 @@ defmodule GenObjectTest do
       assert person.name == "Brian"
     end
   end
+
+  test "inherited modules inherit GenServer behaviour" do
+    athlete = Athlete.new(name: "Brian", sport: "Baseball")
+    assert is_pid(athlete.pid)
+  end
 end
