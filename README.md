@@ -10,6 +10,14 @@ Elixir's process isolation perfectly embodies Alan Kay's original vision of obje
 
 GenObject provides a macro-based DSL for defining object-like structures that maintain state in GenServer processes. Objects support field access, updates, lazy operations, and merging. The library uses the [Inherit](https://github.com/DockYard/inherit) library to provide powerful inheritance modeling capabilities.
 
+> #### Performance Overhead Warning {: .warning}
+>
+> GenObjects have significant performance overhead compared to using Elixir's native data structures directly. Each GenObject is backed by a GenServer process, which means every field access, update, or merge operation involves message passing and serialization. This is much slower than working with structs, maps, and other Elixir literals in memory.
+>
+> GenObjects are best suited for specific patterns where you need long-lived stateful objects, process isolation, fault tolerance, concurrent access to shared state, or complex inheritance hierarchies.
+>
+> **Do not use GenObjects as a general replacement for Elixir's built-in data structures** in your application. Use them judiciously where the benefits of process isolation and message passing outweigh the performance costs.
+
 ## Features
 
 - **Stateful Objects**: Objects backed by GenServer processes with automatic lifecycle management
