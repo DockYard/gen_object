@@ -1,6 +1,12 @@
 # GenObject
 
+> "I thought of objects being like biological cells and/or individual computers on a network, only able to communicate with messages (so messaging came at the very beginning -- it took a while to see how to do messaging in a programming language efficiently enough to be useful)." 
+> 
+> — [Alan Kay](https://userpage.fu-berlin.de/~ram/pub/pub_jf47ht81Ht/doc_kay_oop_en)
+
 A library for creating stateful objects backed by GenServer processes with inheritance support.
+
+Elixir's process isolation perfectly embodies Alan Kay's original vision of object-oriented programming. Each process is truly isolated with its own memory space, can only communicate through messages, and fails independently without affecting other processes. GenObject builds on this foundation to provide a clean, object-like interface over GenServer processes, making it easy to create stateful objects that communicate through message passing while maintaining the fault-tolerance and concurrency benefits of the Actor model.
 
 GenObject provides a macro-based DSL for defining object-like structures that maintain state in GenServer processes. Objects support field access, updates, lazy operations, and merging. The library uses the [Inherit](https://github.com/DockYard/inherit) library to provide powerful inheritance modeling capabilities.
 
