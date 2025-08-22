@@ -347,6 +347,9 @@ defmodule Person do
     [first_name, last_name] = String.split(full_name, " ", parts: 2)
     Map.merge(person, %{first_name: first_name, last_name: last_name})
   end
+
+  # Fall back to default behavior for other operations
+  def handle_set(pair, object), do: super(pair, object)
   
   # Computed virtual attribute (from above)
   def handle_get(:name, %Person{} = person) do
@@ -355,7 +358,6 @@ defmodule Person do
   
   # Fall back to default behavior for other operations
   def handle_get(field, object), do: super(field, object)
-  def handle_set(pair, object), do: super(pair, object)
 end
 
 person = Person.new()
@@ -387,14 +389,16 @@ defmodule BankAccount do
     account.balance_cents / 100
   end
   
-  def handle_set({:balance, dollars}, %BankAccount{} = account) do
-    cents = round(dollars * 100)
-    Map.put(account, :balance_cents, cents)
-  end
-  
   # Virtual attribute for formatted account info
   def handle_get(:account_info, %BankAccount{} = account) do
     "Account: #{account.account_number} (Routing: #{account.routing_number})"
+  end
+
+  def handle_get(field, object), do: super(field, object)
+  
+  def handle_set({:balance, dollars}, %BankAccount{} = account) do
+    cents = round(dollars * 100)
+    Map.put(account, :balance_cents, cents)
   end
   
   # Validation virtual attribute
@@ -408,7 +412,6 @@ defmodule BankAccount do
     Map.merge(account, %{account_number: acct, routing_number: routing})
   end
   
-  def handle_get(field, object), do: super(field, object)
   def handle_set(pair, object), do: super(pair, object)
   
   defp valid_account_number?(number) do
