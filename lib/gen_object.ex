@@ -10,7 +10,7 @@ defmodule GenObject do
   ## Features
 
   - **Stateful Objects**: Objects backed by GenServer processes with automatic lifecycle management
-  - **Field Operations**: Get, put, and merge operations with both synchronous and asynchronous variants
+  - **Field Operations**: get, set, and merge operations with both synchronous and asynchronous variants
   - **Lazy Operations**: Functions that compute values based on current object state
   - **Inheritance Support**: Integration with the Inherit library for object inheritance patterns
   - **Process Safety**: All operations are process-safe through GenServer messaging
@@ -29,16 +29,16 @@ defmodule GenObject do
       person = Person.new(name: "Alice", age: 30)
       
       # Access fields
-      Person.get(person, :name)  # "Alice"
+      Person.get(person, :first_name)  # "Alice"
       
       # Update a single field
-      person = Person.put(person, :age, 31)
+      person = Person.set(person, :age, 31)
       
       # Update multiple fields
       person = Person.merge(person, %{name: "Alice Smith", email: "alice@example.com"})
       
       # Lazy updates based on current state
-      person = Person.put_lazy(person, :age, fn p -> p.age + 1 end)
+      person = Person.set_lazy(person, :age, fn p -> p.age + 1 end)
 
   ## Inheritance with the Inherit Library
 
@@ -158,35 +158,80 @@ defmodule GenObject do
   defoverridable get: 1
 
   @doc """
-  Retrieves the value of a specific field from an object.
+  Handles getting a field value from an object.
+  
+  This function is called whenever a field is accessed via `get/2`. Override this
+  function to implement virtual attributes that compute values dynamically instead
+  of storing them directly in the object state.
+  
+  ## Parameters
+  
+  - `field` - The atom representing the field name being accessed
+  - `object` - The current object struct
+  
+  ## Returns
+  
+  The value for the requested field. For regular fields, this returns the stored
+  value. For virtual attributes, this can return any computed value.
+  
+  ## Examples
+  
+      # Define a virtual attribute that combines first and last name
+      def handle_get(:name, %Person{} = person) do
+        "\#{person.first_name} \#{person.last_name}"
+      end
+      
+      # Fall back to default behavior for other fields  
+      def handle_get(field, object) do
+        super(field, object)
+      end
+  
+  """
+  def handle_get(field, object) when is_atom(field) do
+    Map.get(object, field)
+  end
 
-  Returns the current value of the specified field without retrieving the entire object struct.
-  This is more efficient when you only need a single field value.
+  defoverridable handle_get: 2
+
+  @doc """
+  Retrieves the value of a specific field or multiple fields from an object.
+
+  When given a single field (atom), returns the current value of that field.
+  When given a list of fields, returns a list of values in the same order as requested.
+  This is more efficient than retrieving the entire object struct when you only need specific fields.
 
   ## Parameters
 
   - `pid_or_object` - The PID of the GenObject process, or an object struct containing a `:pid` field
-  - `field` - The atom representing the field name to retrieve
+  - `field_or_fields` - Either an atom representing a single field name, or a list of atoms for multiple fields
 
   ## Examples
 
-      person = Person.new(name: "Alice", age: 30)
+      person = Person.new(first_name: "Alice", last_name: "Smith", age: 30)
 
-      # Get a specific field using the object struct
-      name = GenObject.get(person, :name)
+      # Get a single field
+      first_name = Person.get(person, :first_name)
       # Returns: "Alice"
 
-      # Get a specific field using the PID directly
-      age = GenObject.get(person.pid, :age)
-      # Returns: 30
+      # Get multiple fields at once
+      [first_name, age] = Person.get(person, [:first_name, :age])
+      # Returns: ["Alice", 30]
+
+      # Works with PIDs too
+      [last_name, age] = Person.get(person.pid, [:last_name, :age])
+      # Returns: ["Smith", 30]
+
+      # Virtual attributes work with lists too
+      [name, age] = Person.get(person, [:name, :age])
+      # Returns: ["Alice Smith", 30]
 
   """
-  def get(%{pid: pid}, field) when is_pid(pid) and is_atom(field) do
-    get(pid, field)
+  def get(%{pid: pid}, field_or_fields) when is_pid(pid) and (is_atom(field_or_fields) or is_list(field_or_fields)) do
+    get(pid, field_or_fields)
   end
 
-  def get(pid, field) when is_pid(pid) and is_atom(field) do
-    GenServer.call(pid, {:get, field})
+  def get(pid, field_or_fields) when is_pid(pid) and (is_atom(field_or_fields) or is_list(field_or_fields)) do
+    GenServer.call(pid, {:get, field_or_fields})
   end
   defoverridable get: 2
 
@@ -207,22 +252,22 @@ defmodule GenObject do
       person = Person.new(name: "Alice", age: 30)
 
       # Update using the object struct
-      updated_person = GenObject.put(person, :age, 31)
+      updated_person = GenObject.set(person, :age, 31)
       # Returns: %Person{name: "Alice", age: 31, pid: #PID<...>}
 
       # Update using the PID directly
-      updated_person = GenObject.put(person.pid, :name, "Alice Smith")
+      updated_person = GenObject.set(person.pid, :first_name, "Alice Smith")
       # Returns: %Person{name: "Alice Smith", age: 31, pid: #PID<...>}
 
   """
-  def put(%{pid: pid}, field, value) when is_pid(pid) and is_atom(field) do
-    put(pid, field, value)
+  def set(%{pid: pid}, field, value) when is_pid(pid) and is_atom(field) do
+    set(pid, field, value)
   end
 
-  def put(pid, field, value) when is_pid(pid) and is_atom(field) do
-    GenServer.call(pid, {:put, field, value})
+  def set(pid, field, value) when is_pid(pid) and is_atom(field) do
+    GenServer.call(pid, {:set, field, value})
   end
-  defoverridable put: 3
+  defoverridable set: 3
 
   @doc """
   Updates a specific field in an object asynchronously and returns `:ok` immediately.
@@ -242,25 +287,25 @@ defmodule GenObject do
       person = Person.new(name: "Alice", age: 30)
 
       # Async update using the object struct
-      :ok = GenObject.put!(person, :age, 31)
+      :ok = GenObject.set!(person, :age, 31)
 
       # Async update using the PID directly
-      :ok = GenObject.put!(person.pid, :name, "Alice Smith")
+      :ok = GenObject.set!(person.pid, :first_name, "Alice Smith")
 
       # Verify the update was applied
       updated_person = GenObject.get(person)
       # Returns: %Person{name: "Alice Smith", age: 31, pid: #PID<...>}
 
   """
-  def put!(%{pid: pid}, field, value) when is_pid(pid) and is_atom(field) do
-    put!(pid, field, value)
+  def set!(%{pid: pid}, field, value) when is_pid(pid) and is_atom(field) do
+    set!(pid, field, value)
   end
 
-  def put!(pid, field, value) when is_pid(pid) and is_atom(field) do
-    GenServer.cast(pid, {:put, field, value})
+  def set!(pid, field, value) when is_pid(pid) and is_atom(field) do
+    GenServer.cast(pid, {:set, field, value})
   end
 
-  defoverridable put!: 3
+  defoverridable set!: 3
 
   @doc """
   Updates a specific field using a function that computes the new value based on current object state.
@@ -280,30 +325,30 @@ defmodule GenObject do
       person = Person.new(name: "Alice", age: 30)
 
       # Increment age based on current value
-      updated_person = GenObject.put_lazy(person, :age, fn p -> p.age + 1 end)
+      updated_person = GenObject.set_lazy(person, :age, fn p -> p.age + 1 end)
       # Returns: %Person{name: "Alice", age: 31, pid: #PID<...>}
 
       # Modify name based on current state
-      updated_person = GenObject.put_lazy(person.pid, :name, fn p -> 
+      updated_person = GenObject.set_lazy(person.pid, :first_name, fn p -> 
         p.name <> " (" <> Integer.to_string(p.age) <> ")"
       end)
       # Returns: %Person{name: "Alice (30)", age: 30, pid: #PID<...>}
 
   """
-  def put_lazy(%{pid: pid}, field, func) when is_pid(pid) and is_atom(field) and is_function(func) do
-    put_lazy(pid, field, func)
+  def set_lazy(%{pid: pid}, field, func) when is_pid(pid) and is_atom(field) and is_function(func) do
+    set_lazy(pid, field, func)
   end
 
-  def put_lazy(pid, field, func) when is_pid(pid) and is_atom(field) and is_function(func) do
-    GenServer.call(pid, {:put_lazy, field, func})
+  def set_lazy(pid, field, func) when is_pid(pid) and is_atom(field) and is_function(func) do
+    GenServer.call(pid, {:set_lazy, field, func})
   end
 
-  defoverridable put_lazy: 3
+  defoverridable set_lazy: 3
 
   @doc """
   Updates a specific field using a function asynchronously, returning `:ok` immediately.
 
-  This is the asynchronous version of `put_lazy/3`. It sends a cast message to update
+  This is the asynchronous version of `set_lazy/3`. It sends a cast message to update
   the field using a function that computes the new value based on current object state,
   but returns immediately without waiting for the operation to complete.
 
@@ -318,10 +363,10 @@ defmodule GenObject do
       person = Person.new(name: "Alice", age: 30)
 
       # Async increment age based on current value
-      :ok = GenObject.put_lazy!(person, :age, fn p -> p.age + 1 end)
+      :ok = GenObject.set_lazy!(person, :age, fn p -> p.age + 1 end)
 
       # Async modify name based on current state
-      :ok = GenObject.put_lazy!(person.pid, :name, fn p -> 
+      :ok = GenObject.set_lazy!(person.pid, :first_name, fn p -> 
         p.name <> " (" <> Integer.to_string(p.age) <> ")"
       end)
 
@@ -329,25 +374,57 @@ defmodule GenObject do
       updated_person = GenObject.get(person)
 
   """
-  def put_lazy!(%{pid: pid}, field, func) when is_pid(pid) and is_atom(field) and is_function(func) do
-    put_lazy!(pid, field, func)
+  def set_lazy!(%{pid: pid}, field, func) when is_pid(pid) and is_atom(field) and is_function(func) do
+    set_lazy!(pid, field, func)
   end
 
-  def put_lazy!(pid, field, func) when is_pid(pid) and is_atom(field) and is_function(func) do
-    GenServer.cast(pid, {:put_lazy, field, func})
+  def set_lazy!(pid, field, func) when is_pid(pid) and is_atom(field) and is_function(func) do
+    GenServer.cast(pid, {:set_lazy, field, func})
   end
 
-  defoverridable put_lazy!: 3
+  defoverridable set_lazy!: 3
 
-  defp do_put(object, field, value) do
+  @doc """
+  Handles setting a field value in an object.
+  
+  This function is called whenever a field is updated via `put/3`, `put!/3`, or their
+  lazy variants. Override this function to implement virtual attributes that can parse
+  or transform input values into multiple real fields.
+  
+  ## Parameters
+  
+  - `pair` - A tuple of `{field, value}` representing the field name and new value
+  - `object` - The current object struct
+  
+  ## Returns
+  
+  The updated object struct with the field changes applied.
+  
+  ## Examples
+  
+      # Define a virtual attribute that splits a full name into parts
+      def handle_set({:name, full_name}, %Person{} = person) do
+        [first_name, last_name] = String.split(full_name, " ", parts: 2)
+        Map.merge(person, %{first_name: first_name, last_name: last_name})
+      end
+      
+      # Fall back to default behavior for other fields
+      def handle_set(pair, object) do
+        super(pair, object)
+      end
+  
+  """
+  def handle_set({field, value} = pair, object) when is_atom(field) and is_tuple(pair) do
     struct(object, %{field => value})
   end
+
+  defoverridable handle_set: 2
 
   @doc """
   Merges multiple fields into an object and returns the updated object struct.
 
   This synchronous operation updates multiple fields simultaneously, similar to `struct/2`
-  but for live GenObject processes. More efficient than multiple individual `put/3` calls
+  but for live GenObject processes. More efficient than multiple individual `set/3` calls
   when updating several fields at once.
 
   ## Parameters
@@ -502,17 +579,64 @@ defmodule GenObject do
 
   defoverridable merge_lazy!: 2
 
-  defp do_merge(object, fields) do
-    Map.merge(object, fields)
+  @doc """
+  Handles merging multiple field values into an object.
+  
+  This function is called whenever multiple fields are updated via `merge/2`, `merge!/2`,
+  or their lazy variants. The default implementation processes each field individually
+  through `handle_set/2`, which means virtual attributes work automatically with merge
+  operations.
+  
+  Override this function if you need custom logic for processing multiple fields together,
+  such as validating field combinations or applying transformations that depend on
+  multiple input values.
+  
+  ## Parameters
+  
+  - `fields` - A map of field-value pairs to merge into the object
+  - `object` - The current object struct
+  
+  ## Returns
+  
+  The updated object struct with all field changes applied.
+  
+  ## Examples
+  
+      # Custom merge logic that validates address fields together
+      def handle_merge(%{street: _, city: _, zip: _} = address_fields, %Person{} = person) do
+        # Custom validation logic here
+        if valid_address?(address_fields) do
+          super(address_fields, person)
+        else
+          raise "Invalid address combination"
+        end
+      end
+      
+      # Fall back to default behavior for other merges
+      def handle_merge(fields, object) do
+        super(fields, object)
+      end
+  
+  """
+  def handle_merge(fields, object) when is_map(fields) do
+    Enum.reduce(fields, object, fn({field, value}, object) ->
+      handle_set({field, value}, object)
+    end)
   end
+
+  defoverridable handle_merge: 2
 
   @doc false
   def handle_call(:get, _from, object) do
     {:reply, object, object}
   end
 
-  def handle_call({:get, field}, _from, object) do
-    {:reply, Map.get(object, field), object}
+  def handle_call({:get, field}, _from, object) when is_atom(field) do
+    {:reply, handle_get(field, object), object}
+  end
+
+  def handle_call({:get, fields}, _from, object) when is_list(fields) do
+    {:reply, Enum.map(fields, &handle_get(&1, object)), object}
   end
 
   def handle_call({:assign, assigns}, _from, object) when is_map(assigns) do
@@ -521,24 +645,24 @@ defmodule GenObject do
   end
 
   def handle_call({:merge, fields}, _from, object) do
-    object = do_merge(object, fields)
+    object = handle_merge(fields, object)
     {:reply, object, object}
   end
 
   def handle_call({:merge_lazy, func}, _from, object) when is_function(func) do
     fields = func.(object)
-    object = do_merge(object, fields)
+    object = handle_merge(fields, object)
     {:reply, object, object}
   end
 
-  def handle_call({:put, field, value}, _from, object) do
-    object = do_put(object, field, value)
+  def handle_call({:set, field, value}, _from, object) do
+    object = handle_set({field, value}, object)
     {:reply, object, object}
   end
 
-  def handle_call({:put_lazy, field, func}, _from, object) when is_function(func) do
+  def handle_call({:set_lazy, field, func}, _from, object) when is_function(func) do
     value = func.(object)
-    object = do_put(object, field, value)
+    object = handle_set({field, value}, object)
     {:reply, object, object}
   end
 
@@ -550,25 +674,25 @@ defmodule GenObject do
   defoverridable handle_call: 3
 
   @doc false
-  def handle_cast({:put, field, value}, object) do
-    object = do_put(object, field, value)
+  def handle_cast({:set, field, value}, object) do
+    object = handle_set({field, value}, object)
     {:noreply, object}
   end
 
-  def handle_cast({:put_lazy, field, func}, object) when is_function(func) do
+  def handle_cast({:set_lazy, field, func}, object) when is_function(func) do
     value = func.(object)
-    object = do_put(object, field, value)
+    object = handle_set({field, value}, object)
     {:noreply, object}
   end
 
   def handle_cast({:merge, fields}, object) do
-    object = do_merge(object, fields)
+    object = handle_merge(fields, object)
     {:noreply, object}
   end
 
   def handle_cast({:merge_lazy, func}, object) when is_function(func) do
     fields = func.(object)
-    object = do_merge(object, fields)
+    object = handle_merge(fields, object)
     {:noreply, object}
   end
 

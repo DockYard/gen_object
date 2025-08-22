@@ -20,128 +20,156 @@ defmodule GenObjectTest do
 
   describe "get/2" do
     test "with struct" do
-      person = %Person{} = Person.new(name: "Brian")
-      assert Person.get(person, :name) == "Brian"
+      person = %Person{} = Person.new(first_name: "Brian")
+      assert Person.get(person, :first_name) == "Brian"
     end
 
     test "with pid" do
-      %Person{pid: pid} = Person.new(name: "Brian")
-      assert Person.get(pid, :name) == "Brian"
+      %Person{pid: pid} = Person.new(first_name: "Brian")
+      assert Person.get(pid, :first_name) == "Brian"
     end
   end
 
-  describe "put" do
+  describe "get/2 with list of fields" do
+    test "with struct" do
+      person = %Person{} = Person.new(first_name: "Brian", last_name: "Cardarella")
+      assert Person.get(person, [:first_name, :last_name]) == ["Brian", "Cardarella"]
+    end
+
+    test "with pid" do
+      %Person{pid: pid} = Person.new(first_name: "Brian", last_name: "Cardarella")
+      assert Person.get(pid, [:first_name, :last_name]) == ["Brian", "Cardarella"]
+    end
+  end
+
+  describe "set" do
     test "sync" do
       person = Person.new()
-      person = Person.put(person, :age, 99)
-      assert person.age == 99
+      person = Person.set(person, :age, 99)
+      assert Person.get(person, :age) == 99
 
-      person = Person.put(person.pid, :age, 23)
-      assert person.age == 23
+      _person = Person.set(person.pid, :age, 23)
+      assert Person.get(person, :age) == 23
     end
 
     test "async" do
       person = Person.new()
-      :ok = Person.put!(person, :age, 99)
-      person = Person.get(person)
-      assert person.age == 99
+      :ok = Person.set!(person, :age, 99)
+      assert Person.get(person, :age) == 99
 
-      :ok = Person.put!(person.pid, :age, 23)
-      person = Person.get(person)
-      assert person.age == 23
+      :ok = Person.set!(person.pid, :age, 23)
+      assert Person.get(person, :age) == 23
     end
   end
 
-  describe "put_lazy" do
+  describe "set_lazy" do
     test "sync" do
       person = Person.new()
-      person = Person.put_lazy(person, :age, fn(person) ->
+      person = Person.set_lazy(person, :age, fn(person) ->
         person.age || 99
       end)
-      assert person.age == 99
+      assert Person.get(person, :age) == 99
 
-      person = Person.put_lazy(person.pid, :age, fn(person) ->
+      _person = Person.set_lazy(person.pid, :age, fn(person) ->
         person.age + 10
       end)
-      assert person.age == 109
+      assert Person.get(person, :age) == 109
     end
 
     test "async" do
       person = Person.new()
-      :ok = Person.put_lazy!(person, :age, fn(person) ->
+      :ok = Person.set_lazy!(person, :age, fn(person) ->
         person.age || 99
       end)
-      person = Person.get(person)
-      assert person.age == 99
+      assert Person.get(person, :age) == 99
 
-      :ok = Person.put_lazy!(person.pid, :age, fn(person) ->
+      :ok = Person.set_lazy!(person.pid, :age, fn(person) ->
         person.age + 10
       end)
-      person = Person.get(person)
-      assert person.age == 109
+      assert Person.get(person, :age) == 109
     end
   end
 
   describe "merge" do
     test "sync" do
       person = Person.new()
-      person = Person.merge(person, %{age: 99, name: "Thomas"})
-      assert person.age == 99
-      assert person.name == "Thomas"
+      person = Person.merge(person, %{age: 99, first_name: "Thomas"})
+      assert Person.get(person, :age) == 99
+      assert Person.get(person, :first_name) == "Thomas"
 
-      person = Person.merge(person.pid, %{age: 23, name: "Brian"})
-      assert person.age == 23
-      assert person.name == "Brian"
+      person = Person.merge(person.pid, %{age: 23, first_name: "Brian"})
+      assert Person.get(person, :age) == 23
+      assert Person.get(person, :first_name) == "Brian"
     end
 
     test "async" do
       person = Person.new()
-      :ok = Person.merge!(person, %{age: 99, name: "Thomas"})
-      person = Person.get(person)
-      assert person.age == 99
-      assert person.name == "Thomas"
+      :ok = Person.merge!(person, %{age: 99, first_name: "Thomas"})
+      assert Person.get(person, :age) == 99
+      assert Person.get(person, :first_name) == "Thomas"
 
-      :ok = Person.merge!(person.pid, %{age: 23, name: "Brian"})
-      person = Person.get(person)
-      assert person.age == 23
-      assert person.name == "Brian"
+      :ok = Person.merge!(person.pid, %{age: 23, first_name: "Brian"})
+      assert Person.get(person, :age) == 23
     end
   end
 
   describe "merge_lazy" do
     test "sync" do
       person = Person.new()
-      person = Person.merge_lazy(person, fn(person) ->
-        Map.put(person, :age, 99)
+      person = Person.merge_lazy(person, fn(_person) ->
+        %{age: 99, first_name: "Thomas"}
       end)
-      assert person.age == 99
+      assert Person.get(person, :age) == 99
+      assert Person.get(person, :first_name) == "Thomas"
 
-      person = Person.merge_lazy(person.pid, fn(person) ->
-       %{age: person.age + 10, name: "Thomas"} 
+      _person = Person.merge_lazy(person.pid, fn(_person) ->
+        %{age: person.age + 10, first_name: "Brian"} 
       end)
-      assert person.age == 109
-      assert person.name == "Thomas"
+      assert Person.get(person, :age) == 109
+      assert Person.get(person, :first_name) == "Brian"
     end
 
     test "async" do
       person = Person.new()
-      :ok = Person.merge_lazy!(person, fn(person) ->
-        Map.put(person, :age, 99)
+      :ok = Person.merge_lazy!(person, fn(_person) ->
+        %{age: 99, first_name: "Thomas"}
       end)
-      person = Person.get(person)
-      assert person.age == 99
+      assert Person.get(person, :age) == 99
+      assert Person.get(person, :first_name) == "Thomas"
 
       :ok = Person.merge_lazy!(person.pid, fn(person) ->
-        %{age: person.age + 10, name: "Brian"}
+        %{age: person.age + 10, first_name: "Brian"}
       end)
-      person = Person.get(person)
-      assert person.age == 109
-      assert person.name == "Brian"
+      assert Person.get(person, :age) == 109
+      assert Person.get(person, :first_name) == "Brian"
     end
   end
 
   test "inherited modules inherit GenServer behaviour" do
-    athlete = Athlete.new(name: "Brian", sport: "Baseball")
+    athlete = Athlete.new(first_name: "Brian", sport: "Baseball")
     assert is_pid(athlete.pid)
+  end
+
+  describe "virtual attributes" do
+    test "get a virtual attribute calculated a value instead of gets" do
+      person = Person.new(first_name: "Brian", last_name: "Cardarella")
+      assert Person.get(person, :name) == "Brian Cardarella"
+    end
+
+    test "set a virtual attribute can set state values" do
+      person = Person.new()
+      Person.set(person, :name, "Brian Cardarella")
+
+      assert Person.get(person, :first_name) == "Brian"
+      assert Person.get(person, :last_name) == "Cardarella"
+    end
+
+    test "merge virtual attributes" do
+      person = Person.new()
+      Person.merge(person, %{name: "Brian Cardarella"})
+
+      assert Person.get(person, :first_name) == "Brian"
+      assert Person.get(person, :last_name) == "Cardarella"
+    end
   end
 end
